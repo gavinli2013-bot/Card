@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>信用卡回贈助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="app" class="max-w-md mx-auto h-screen flex flex-col overflow-hidden relative shadow-2xl bg-gray-50">
+        
+        <!-- Header -->
+        <header class="bg-white border-b px-6 py-4 flex justify-between items-center shrink-0 z-10">
+            <h1 class="text-xl font-black bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                卡回贈助手
+            </h1>
+            <button @click="refreshHomeTip" class="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-full transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" :class="{'animate-spin': homeTip.loading}" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+            </button>
+        </header>
+
+        <!-- 主頁列表視圖 -->
+        <main v-if="view === 'list'" class="flex-1 overflow-y-auto pb-24 animate__animated animate__fadeIn">
+            <div class="bg-white px-6 py-4 shadow-sm rounded-b-3xl mb-4">
+                
+                <!-- AI 優惠 Banner -->
+                <div class="bg-gradient-to-r from-indigo-50 to-blue-50 p-4 rounded-2xl mb-5 border border-indigo-100">
+                    <div class="flex items-start gap-3">
+                        <div class="bg-indigo-100 p-1.5 rounded-full shrink-0 text-indigo-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+                        </div>
+                        <p class="text-xs text-indigo-800 leading-relaxed font-medium">{{ homeTip.text }}</p>
+                    </div>
+                </div>
+
+                <!-- 備忘錄區塊 -->
+                <div class="mb-6">
+                    <div class="flex items-center gap-1 mb-3 text-gray-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9z"></path><path d="M18 3v6"></path><path d="M14 3v6"></path><path d="M22 3v6"></path><path d="M2 9h20"></path></svg>
+                        <span class="text-[11px] font-bold uppercase tracking-wider">卡片使用備忘錄</span>
+                    </div>
+                    <div v-if="uniqueSavedCards.length === 0" class="text-[11px] text-gray-400 italic px-2">
+                        新增消費後可在此設定每張卡的特別提醒
+                    </div>
+                    <div v-else class="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+                        <div v-for="card in uniqueSavedCards" :key="card" 
+                             @click="editingCardNote = card"
+                             class="min-w-[140px] p-3 rounded-2xl border border-dashed border-gray-200 bg-white relative group cursor-pointer active:scale-95 transition-all">
+                            <p class="text-[10px] font-bold mb-1 truncate" :style="{color: getCardStyle(card).text}">{{ card }}</p>
+                            <p class="text-[11px] text-gray-600 line-clamp-2 min-h-[2em]">
+                                {{ cardNotes[card] || "點擊輸入注意事項..." }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 月份選擇 -->
+                <div class="flex items-center justify-between mb-4">
+                    <button @click="changeMonth(-1)" class="p-1 hover:bg-gray-100 rounded">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>
+                    </button>
+                    <span class="font-bold text-lg text-gray-800">{{ currentMonthLabel }}</span>
+                    <button @click="changeMonth(1)" class="p-1 hover:bg-gray-100 rounded">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-blue-50 p-3 rounded-2xl">
+                        <p class="text-xs text-blue-600 font-medium mb-1">本月支出</p>
+                        <p class="text-xl font-bold text-blue-800">HK$ {{ totalSpent.toLocaleString() }}</p>
+                    </div>
+                    <div class="bg-green-50 p-3 rounded-2xl">
+                        <p class="text-xs text-green-600 font-medium mb-1">活躍卡片</p>
+                        <p class="text-xl font-bold text-green-800">{{ spendByCard.length }}</p>
+                    </div>
+                </div>
+
+                <!-- 棒形圖 -->
+                <div v-if="spendByCard.length > 0" class="mt-5">
+                    <div class="flex items-center gap-1 mb-2 text-gray-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                        <span class="text-[11px] font-bold uppercase tracking-wider">各卡支出分佈</span>
+                    </div>
+                    <div class="space-y-3">
+                        <div v-for="item in spendByCard" :key="item[0]">
+                            <div class="flex justify-between text-[11px] mb-1">
+                                <span class="font-semibold">{{ item[0] }}</span>
+                                <span class="text-gray-500 font-medium">HK$ {{ item[1].toLocaleString() }}</span>
+                            </div>
+                            <div class="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full transition-all duration-500"
+                                     :style="{ width: (item[1] / maxSpend * 100) + '%', backgroundColor: getCardStyle(item[0]).bar }">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 紀錄列表 -->
+            <div class="px-4 space-y-3">
+                <div v-if="filteredRecords.length === 0" class="text-center py-20 text-gray-300">
+                    <p class="font-medium">本月暫無紀錄</p>
+                </div>
+                <div v-else v-for="record in filteredRecords" :key="record.id" 
+                     @click="editRecord(record)"
+                     class="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center active:bg-gray-50 transition-all border border-transparent">
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <div class="p-2.5 rounded-xl shrink-0" :style="{ backgroundColor: getCardStyle(record.cardName).bg, color: getCardStyle(record.cardName).text }">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                        </div>
+                        <div class="overflow-hidden">
+                            <h3 class="font-bold text-gray-800 truncate text-sm">{{ record.cardName }}</h3>
+                            <p class="text-[10px] text-gray-400">{{ formatDate(record.date) }}</p>
+                            <p v-if="record.note" class="text-xs text-gray-500 mt-1 italic truncate border-l-2 border-gray-200 pl-2">
+                                {{ record.note }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="text-right shrink-0 ml-2">
+                        <p class="font-black text-base text-gray-900">HK$ {{ parseFloat(record.amount).toLocaleString() }}</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 新增/編輯視圖 -->
+        <main v-else class="flex-1 flex flex-col bg-white animate__animated animate__slideInRight relative">
+            <div class="p-6 border-b text-center shrink-0">
+                <h2 class="text-lg font-bold text-gray-800">{{ formData.id ? '修改消費' : '新增消費' }}</h2>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-6 space-y-6 pb-32">
+                <!-- 信用卡選擇 -->
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">信用卡</label>
+                    <div class="relative">
+                        <input v-model="formData.cardName" type="text" placeholder="輸入卡片名稱..." 
+                               class="w-full p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold text-gray-800">
+                        <button @click="fetchCardInfo(formData.cardName)" 
+                                class="absolute right-3 top-3 p-1.5 text-blue-600 bg-white rounded-xl shadow-sm active:scale-90 transition-transform">
+                            <svg xmlns="http://www.w3.org/2000/svg" :class="{'animate-spin': loading}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+                        </button>
+                    </div>
+                    <!-- 快速選擇 -->
+                    <div v-if="uniqueSavedCards.length > 0" class="flex gap-2 overflow-x-auto py-1 no-scrollbar">
+                        <button v-for="card in uniqueSavedCards" :key="card" 
+                                @click="formData.cardName = card"
+                                class="whitespace-nowrap px-3 py-1.5 bg-gray-100 text-gray-600 text-[11px] font-bold rounded-full transition-colors active:bg-blue-100">
+                            {{ card }}
+                        </button>
+                    </div>
+                    <!-- AI Info Box -->
+                    <div v-if="cardsInfo[formData.cardName]" class="mt-2 p-3 bg-blue-50 rounded-xl border border-blue-100 flex gap-2 items-start animate__animated animate__fadeIn">
+                        <div class="text-blue-600 mt-0.5"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg></div>
+                        <p class="text-[11px] text-blue-700 font-medium leading-normal">{{ cardsInfo[formData.cardName] }}</p>
+                    </div>
+                </div>
+
+                <!-- 金額 -->
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">金額 (HKD)</label>
+                    <div class="relative">
+                        <span class="absolute left-4 top-4 text-gray-400 font-black text-lg">HK$</span>
+                        <input v-model="formData.amount" type="number" placeholder="0.00" 
+                               class="w-full p-4 pl-14 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 outline-none text-2xl font-black text-gray-900">
+                    </div>
+                </div>
+
+                <!-- 時間 -->
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">交易時間</label>
+                    <div class="relative text-gray-500">
+                        <div class="absolute left-4 top-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        </div>
+                        <input v-model="formData.date" type="datetime-local" 
+                               class="w-full p-4 pl-12 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold">
+                    </div>
+                </div>
+
+                <!-- 備註 -->
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">消費備註</label>
+                    <div class="relative text-gray-500">
+                        <div class="absolute left-4 top-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                        </div>
+                        <input v-model="formData.note" type="text" placeholder="例如：午餐、外賣、超市..." 
+                               class="w-full p-4 pl-12 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 outline-none font-bold">
+                    </div>
+                </div>
+                
+                <button v-if="formData.id" @click="deleteRecord(formData.id)" 
+                        class="w-full py-4 text-red-500 font-bold flex items-center justify-center gap-2 border border-red-100 rounded-2xl active:bg-red-50 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    刪除此紀錄
+                </button>
+            </div>
+
+            <!-- 操作按鈕 -->
+            <div class="absolute bottom-0 left-0 right-0 p-6 bg-white/80 backdrop-blur-md border-t flex gap-4 shrink-0 z-20">
+                <button @click="view = 'list'" class="flex-1 py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold active:scale-95 transition-all">取消</button>
+                <button @click="handleSave" class="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-100 active:scale-95 transition-all px-12">完成</button>
+            </div>
+        </main>
+
+        <!-- Floating Add Button -->
+        <button v-if="view === 'list'" @click="openAddView" 
+                class="absolute bottom-6 right-6 bg-blue-600 text-white w-14 h-14 rounded-full shadow-lg shadow-blue-300 hover:scale-110 active:scale-90 transition-all z-40 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        </button>
+
+        <!-- 備忘錄編輯 Modal -->
+        <div v-if="editingCardNote" class="absolute inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end">
+            <div class="w-full bg-white rounded-t-3xl p-6 animate__animated animate__slideInUp animate__faster">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-black text-lg" :style="{ color: getCardStyle(editingCardNote).text }">{{ editingCardNote }} 備忘</h3>
+                    <button @click="editingCardNote = null" class="p-1 text-gray-400"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                </div>
+                <textarea v-model="cardNotes[editingCardNote]" autoFocus
+                          class="w-full h-32 p-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 outline-none text-sm leading-relaxed font-medium"
+                          placeholder="例如：星期五超市 5% 回贈，網購需用實體卡..."></textarea>
+                <button @click="editingCardNote = null"
+                        class="w-full mt-4 py-4 bg-blue-600 text-white rounded-2xl font-black flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all">
+                    保存備忘
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+        const apiKey = ""; // 自動注入
+
+        const getLocalNow = () => {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            return now.toISOString().slice(0, 16);
+        };
+
+        createApp({
+            setup() {
+                const view = ref('list');
+                const records = ref([]);
+                const cardsInfo = ref({});
+                const cardNotes = ref({});
+                const currentMonth = ref(new Date());
+                const loading = ref(false);
+                const homeTip = ref({ text: "獲取優惠中...", loading: true });
+                const editingCardNote = ref(null);
+
+                const formData = ref({
+                    id: null,
+                    cardName: '',
+                    amount: '',
+                    date: getLocalNow(),
+                    note: ''
+                });
+
+                // 顏色工具
+                const getCardStyle = (name) => {
+                    let hash = 0;
+                    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+                    const hue = Math.abs(hash) % 360;
+                    return {
+                        bar: `hsl(${hue}, 75%, 60%)`,
+                        bg: `hsl(${hue}, 85%, 96%)`,
+                        text: `hsl(${hue}, 80%, 30%)`
+                    };
+                };
+
+                // 月份顯示
+                const currentMonthLabel = computed(() => {
+                    return `${currentMonth.value.getFullYear()}年 ${currentMonth.value.getMonth() + 1}月`;
+                });
+
+                // 篩選與計算
+                const filteredRecords = computed(() => {
+                    return records.value.filter(r => {
+                        const d = new Date(r.date);
+                        return d.getMonth() === currentMonth.value.getMonth() && d.getFullYear() === currentMonth.value.getFullYear();
+                    }).sort((a, b) => new Date(b.date) - new Date(a.date));
+                });
+
+                const totalSpent = computed(() => filteredRecords.value.reduce((s, r) => s + parseFloat(r.amount || 0), 0));
+
+                const spendByCard = computed(() => {
+                    const s = {};
+                    filteredRecords.value.forEach(r => s[r.cardName] = (s[r.cardName] || 0) + parseFloat(r.amount || 0));
+                    return Object.entries(s).sort((a, b) => b[1] - a[1]);
+                });
+
+                const maxSpend = computed(() => Math.max(...spendByCard.value.map(i => i[1]), 1));
+
+                const uniqueSavedCards = computed(() => [...new Set(records.value.map(r => r.cardName))].filter(Boolean));
+
+                // AI 邏輯
+                const fetchCardInfo = async (cardName) => {
+                    if (!cardName) return;
+                    loading.value = true;
+                    try {
+                        const q = `請提供 ${cardName} 信用卡在香港目前的官方基本回贈比例以及最新的限時優惠。以港元(HKD)為單位，一語道破。`;
+                        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ contents: [{ parts: [{ text: q }] }] })
+                        });
+                        const data = await res.json();
+                        cardsInfo.value[cardName] = data.candidates?.[0]?.content?.parts?.[0]?.text || "未能獲取";
+                    } catch (e) { console.error(e); } finally { loading.value = false; }
+                };
+
+                const refreshHomeTip = async () => {
+                    const base = uniqueSavedCards.value.length > 0 ? uniqueSavedCards.value : ['匯豐 Red卡', '渣打 Smart卡', '恆生 MMPOWER'];
+                    const card = base[Math.floor(Math.random() * base.length)];
+                    homeTip.value.loading = true;
+                    try {
+                        const q = `請提供香港 ${card} 目前最值得注意的優惠或使用 Tips。30字內回答。`;
+                        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ contents: [{ parts: [{ text: q }] }] })
+                        });
+                        const data = await res.json();
+                        homeTip.value.text = `【${card}】${data.candidates?.[0]?.content?.parts?.[0]?.text || "暫無優惠資訊"}`;
+                    } catch (e) { homeTip.value.text = "無法連線至 AI 助手"; } finally { homeTip.value.loading = false; }
+                };
+
+                // 操作邏輯
+                const openAddView = () => {
+                    formData.value = { id: null, cardName: '', amount: '', date: getLocalNow(), note: '' };
+                    view.value = 'add';
+                };
+
+                const handleSave = () => {
+                    if (!formData.value.cardName || !formData.value.amount) return;
+                    if (formData.value.id) {
+                        const idx = records.value.findIndex(r => r.id === formData.value.id);
+                        records.value[idx] = { ...formData.value };
+                    } else {
+                        records.value.push({ ...formData.value, id: Date.now() });
+                    }
+                    if (!cardsInfo.value[formData.value.cardName]) fetchCardInfo(formData.value.cardName);
+                    view.value = 'list';
+                };
+
+                const editRecord = (r) => {
+                    formData.value = { ...r };
+                    view.value = 'add';
+                };
+
+                const deleteRecord = (id) => {
+                    records.value = records.value.filter(r => r.id !== id);
+                    view.value = 'list';
+                };
+
+                const changeMonth = (offset) => {
+                    const d = new Date(currentMonth.value);
+                    d.setMonth(d.getMonth() + offset);
+                    currentMonth.value = d;
+                };
+
+                const formatDate = (ds) => {
+                    const d = new Date(ds);
+                    return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+                };
+
+                onMounted(() => { refreshHomeTip(); });
+
+                return {
+                    view, records, cardsInfo, cardNotes, currentMonth, loading, homeTip, editingCardNote,
+                    formData, currentMonthLabel, filteredRecords, totalSpent, spendByCard, maxSpend, uniqueSavedCards,
+                    getCardStyle, fetchCardInfo, refreshHomeTip, openAddView, handleSave, editRecord, deleteRecord, changeMonth, formatDate
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
